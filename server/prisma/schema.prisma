@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 游戏表
+model Game {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+  slug       String      @unique
+  icon       String?
+  sortOrder  Int         @default(0) @map("sort_order")
+  isActive   Boolean     @default(true) @map("is_active")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  categories Category[]
+  materials  Material[]
+
+  @@map("games")
+}
+
+// 分类表
+model Category {
+  id        Int        @id @default(autoincrement())
+  gameId    Int        @map("game_id")
+  name      String
+  slug      String
+  parentId  Int?       @map("parent_id")
+  sortOrder Int        @default(0) @map("sort_order")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  game      Game       @relation(fields: [gameId], references: [id])
+  parent    Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToCategory")
+  materials Material[]
+
+  @@unique([gameId, slug])
+  @@map("categories")
+}
+
+// 素材表
+model Material {
+  id            Int              @id @default(autoincrement())
+  gameId        Int              @map("game_id")
+  categoryId    Int              @map("category_id")
+  title         String
+  description   String?          @db.Text
+  filePath      String           @map("file_path")
+  fileSize      BigInt           @map("file_size")
+  fileType      String           @map("file_type")
+  duration      Int?             // 音频/视频时长(秒)
+  resolution    String?          // 图片/视频分辨率
+  version       String?          // 游戏版本号
+  uploadTime    DateTime         @default(now()) @map("upload_time")
+  downloadCount Int              @default(0) @map("download_count")
+  isFeatured    Boolean          @default(false) @map("is_featured")
+  status        MaterialStatus   @default(PUBLISHED)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  game          Game             @relation(fields: [gameId], references: [id])
+  category      Category         @relation(fields: [categoryId], references: [id])
+  tags          MaterialTag[]
+  downloadLogs  DownloadLog[]
+
+  @@index([gameId, categoryId, status])
+  @@index([uploadTime])
+  @@index([downloadCount])
+  @@map("materials")
+}
+
+enum MaterialStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// 标签表
+model Tag {
+  id        Int           @id @default(autoincrement())
+  name      String        @unique
+  slug      String        @unique
+  type      TagType
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  materials MaterialTag[]
+
+  @@map("tags")
+}
+
+enum TagType {
+  CHARACTER  // 角色
+  ELEMENT    // 元素
+  RARITY     // 稀有度
+  VERSION    // 版本
+  SCENE      // 场景
+  OTHER      // 其他
+}
+
+// 素材标签关联表
+model MaterialTag {
+  materialId Int      @map("material_id")
+  tagId      Int      @map("tag_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  material   Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([materialId, tagId])
+  @@map("material_tags")
+}
+
+// 下载记录表
+model DownloadLog {
+  id           Int      @id @default(autoincrement())
+  materialId   Int      @map("material_id")
+  ip           String
+  userAgent    String?  @map("user_agent") @db.Text
+  downloadTime DateTime @default(now()) @map("download_time")
+
+  material     Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([materialId])
+  @@index([downloadTime])
+  @@map("download_logs")
+}
+
+// 管理员表
+model Admin {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String   @map("password_hash")
+  lastLogin    DateTime? @map("last_login")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("admins")
+}
+
