@@ -74,9 +74,11 @@ router.get('/', async (req: Request, res: Response) => {
 // 获取素材详情
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const materialId = parseInt(id);
+
     const material = await prisma.material.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: materialId },
       include: {
         game: true,
         category: true,
@@ -101,8 +103,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 // 记录下载
 router.post('/:id/download', async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const materialId = parseInt(id as string);
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const materialId = parseInt(id);
     const ip = req.ip || 'unknown';
     const userAgent = req.headers['user-agent'] || '';
 

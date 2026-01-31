@@ -1,7 +1,19 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '.prisma/client';
+import { Pool } from 'pg';
+import { PrismaPg } from '@prisma/adapter-pg';
 import bcrypt from 'bcryptjs';
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+// 创建 PostgreSQL 连接池
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL
+});
+
+// 创建 Prisma adapter
+const adapter = new PrismaPg(pool);
+
+// 使用 adapter 初始化 PrismaClient
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('开始种子数据...');

@@ -14,8 +14,14 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
+    "@fluentui/react-components": "^9.72.11",
+    "@fluentui/react-icons": "^2.0.317",
+    "@types/react": "^19.2.10",
+    "@types/react-dom": "^19.2.3",
     "antd": "^6.2.2",
     "axios": "^1.13.4",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "react-router-dom": "^7.13.0"
   }
 }

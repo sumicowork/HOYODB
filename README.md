@@ -2,141 +2,190 @@
 
 一个基于 Web 的米哈游游戏素材展示和下载平台，优先支持《崩坏：星穹铁道》，后续扩展至原神和绝区零。
 
-## 项目结构
+## 🎮 功能特色
+
+- 📁 **素材分类浏览** - 按游戏、分类、标签浏览素材
+- 🔍 **搜索功能** - 快速搜索需要的素材
+- 🎵 **在线预览** - 音频在线播放、图片预览
+- ⬇️ **免费下载** - 所有素材免费下载
+- 📊 **下载统计** - 自动记录下载次数
+- 🔐 **管理后台** - 完整的素材管理系统
+
+## 🛠 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 前端 | React 18 + TypeScript + Vite + Fluent UI |
+| 后端 | Express + TypeScript + Prisma 7 |
+| 数据库 | PostgreSQL |
+| 认证 | JWT |
+
+## 📁 项目结构
 
 ```
 HOYODB/
-├── client/              # 前端项目 (React + TypeScript + Vite + Ant Design)
+├── client/                 # 前端项目
 │   ├── src/
-│   │   ├── pages/      # 页面组件
-│   │   ├── services/   # API 服务
-│   │   └── App.tsx     # 主应用组件
+│   │   ├── components/     # 公共组件
+│   │   ├── pages/          # 页面组件
+│   │   │   ├── HomePage.tsx
+│   │   │   ├── GamePage.tsx
+│   │   │   ├── MaterialDetailPage.tsx
+│   │   │   └── admin/      # 管理后台页面
+│   │   ├── services/       # API 服务
+│   │   └── App.tsx
 │   └── package.json
-├── server/              # 后端项目 (Node.js + Express + TypeScript + Prisma)
-│   ├── src/
-│   │   └── index.ts    # 服务器入口
+│
+├── server/                 # 后端项目
 │   ├── prisma/
-│   │   └── schema.prisma  # 数据库模型
+│   │   ├── schema.prisma   # 数据库模型
+│   │   └── seed.ts         # 种子数据
+│   ├── src/
+│   │   ├── routes/         # API 路由
+│   │   ├── middleware/     # 中间件
+│   │   └── index.ts
 │   └── package.json
-└── README.md
+│
+├── docs/                   # 文档
+│   └── PROGRESS.md         # 开发进度
+│
+└── start-dev.ps1           # 启动脚本
 ```
 
-## 技术栈
-
-### 前端
-- React 18
-- TypeScript
-- Vite
-- Ant Design
-- React Router
-- Axios
-
-### 后端
-- Node.js
-- Express
-- TypeScript
-- Prisma ORM
-- PostgreSQL
-- JWT 认证
-
-## 快速开始
+## 🚀 快速开始
 
 ### 环境要求
+
 - Node.js >= 18
 - PostgreSQL >= 14
-- npm 或 yarn
+- npm
 
-### 安装依赖
+### 1. 克隆项目
 
 ```bash
-# 安装前端依赖
-cd client
-npm install
+git clone https://github.com/your-repo/hoyodb.git
+cd hoyodb
+```
 
+### 2. 安装依赖
+
+```bash
 # 安装后端依赖
-cd ../server
+cd server
+npm install
+
+# 安装前端依赖
+cd ../client
 npm install
 ```
 
-### 配置环境变量
+### 3. 配置数据库
 
-#### 后端配置 (server/.env)
+编辑 `server/.env` 文件：
+
 ```env
+DATABASE_URL="postgresql://postgres:你的密码@localhost:5432/hoyodb?schema=public"
+JWT_SECRET="你的JWT密钥"
 PORT=3000
-NODE_ENV=development
-DATABASE_URL="postgresql://user:password@localhost:5432/hoyodb?schema=public"
-JWT_SECRET=your-secret-key
-ALIST_BASE_URL=http://your-alist-url
-ALIST_TOKEN=your-alist-token
 ```
 
-#### 前端配置 (client/.env)
-```env
-VITE_API_BASE_URL=http://localhost:3000
-```
-
-### 初始化数据库
+### 4. 初始化数据库
 
 ```bash
 cd server
-npm run prisma:generate
-npm run prisma:migrate
+npx prisma generate
+npx prisma migrate dev
+npx prisma db seed
 ```
 
-### 运行项目
+### 5. 启动开发服务器
+
+**方法一：使用启动脚本**
+
+```powershell
+.\start-dev.ps1
+```
+
+**方法二：手动启动**
 
 ```bash
-# 运行后端 (在 server 目录)
+# 终端1 - 启动后端
+cd server
 npm run dev
 
-# 运行前端 (在 client 目录，新终端)
+# 终端2 - 启动前端
+cd client
 npm run dev
 ```
 
-访问:
-- 前端: http://localhost:5173
-- 后端: http://localhost:3000
+### 6. 访问应用
 
-## 开发计划
+- 前端首页: http://localhost:5173
+- 管理后台: http://localhost:5173/admin/login
+- 后端 API: http://localhost:3000
 
-详见 [plan-hoyodb.prompt.md](./plan-hoyodb.prompt.md)
+## 🔐 默认管理员账号
 
-### 主要功能
+- **用户名**: `admin`
+- **密码**: `admin123`
 
-1. ✅ 项目基础架构搭建
-2. ⬜ 数据库模型设计和迁移
-3. ⬜ 用户前端界面开发
-4. ⬜ 管理后台开发
-5. ⬜ Alist 云盘集成
-6. ⬜ 文件预览和下载功能
-7. ⬜ 搜索和筛选系统
-8. ⬜ 统计和监控功能
+> ⚠️ 请在生产环境中修改默认密码！
 
-## 数据库模型
+## 📝 API 接口
 
-项目使用 Prisma ORM，数据库模型包括：
+### 公共 API
 
-- **Games**: 游戏信息（星穹铁道、原神、绝区零）
-- **Categories**: 素材分类（音乐、图片、视频等）
-- **Materials**: 素材详情
-- **Tags**: 标签系统（角色、元素、版本等）
-- **MaterialTags**: 素材标签关联
-- **DownloadLogs**: 下载记录
-- **Admins**: 管理员账户
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/games` | 获取游戏列表 |
+| GET | `/api/games/:slug` | 获取游戏详情 |
+| GET | `/api/materials` | 获取素材列表 |
+| GET | `/api/materials/:id` | 获取素材详情 |
+| POST | `/api/materials/:id/download` | 记录下载 |
+| GET | `/api/tags` | 获取标签列表 |
 
-## API 文档
+### 管理员 API（需要认证）
 
-API 文档将在开发完成后自动生成。
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/auth/login` | 管理员登录 |
+| GET | `/api/admin/dashboard/stats` | 仪表盘统计 |
+| CRUD | `/api/admin/games` | 游戏管理 |
+| CRUD | `/api/admin/categories` | 分类管理 |
+| CRUD | `/api/admin/materials` | 素材管理 |
+| CRUD | `/api/admin/tags` | 标签管理 |
 
-## 贡献指南
+## 📊 素材分类
 
-本项目目前处于开发阶段，暂不接受公开贡献。
+### 崩坏：星穹铁道
 
-## 许可证
+- 角色语音
+- BGM音乐
+- 战斗音效
+- 角色立绘
+- 场景原画
+- UI素材
+- 过场动画
+- 其他
 
-待定
+### 标签类型
 
-## 联系方式
+- 角色 (CHARACTER)
+- 元素 (ELEMENT)
+- 稀有度 (RARITY)
+- 版本 (VERSION)
+- 场景 (SCENE)
+- 其他 (OTHER)
 
-项目维护者：HOYODB Team
+## 🔄 开发进度
+
+查看 [docs/PROGRESS.md](docs/PROGRESS.md) 了解详细开发进度。
+
+## 📜 许可证
+
+本项目仅供学习交流使用，素材版权归米哈游所有。
+
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
 
