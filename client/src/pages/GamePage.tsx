@@ -1,19 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card,
-  CardHeader,
-  CardPreview,
   Button,
   Input,
   Spinner,
   Text,
-  Title2,
-  Title3,
   Badge,
   makeStyles,
   shorthands,
-  tokens,
 } from '@fluentui/react-components';
 import {
   Home24Regular,
@@ -24,11 +18,13 @@ import {
   ArrowDownload24Regular,
   ArrowLeft24Regular,
   ArrowRight24Regular,
-  Grid24Regular,
-  List24Regular,
   Filter24Regular,
 } from '@fluentui/react-icons';
 import { api, Game, Material, Category } from '../services/api';
+import ThemeToggle from '../components/ThemeToggle';
+import MobileMenu from '../components/MobileMenu';
+import SearchFilter from '../components/SearchFilter';
+import { useTheme } from '../contexts/ThemeContext';
 
 const useStyles = makeStyles({
   root: {
@@ -77,6 +73,13 @@ const useStyles = makeStyles({
     color: 'white',
     ':hover': {
       backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+  },
+  mobileMenuButton: {
+    display: 'none',
+    color: 'white',
+    '@media (max-width: 768px)': {
+      display: 'flex',
     },
   },
   layout: {
@@ -373,6 +376,7 @@ const getFileIcon = (fileType: string) => {
 
 const GamePage: React.FC = () => {
   const styles = useStyles();
+  const { colors, isDark } = useTheme();
   const { gameSlug } = useParams<{ gameSlug: string }>();
   const navigate = useNavigate();
 
@@ -383,6 +387,7 @@ const GamePage: React.FC = () => {
   const [materialsLoading, setMaterialsLoading] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedTagId, setSelectedTagId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalMaterials, setTotalMaterials] = useState(0);
@@ -396,7 +401,7 @@ const GamePage: React.FC = () => {
     if (game) {
       loadMaterials();
     }
-  }, [game, selectedCategory, searchQuery, currentPage]);
+  }, [game, selectedCategory, selectedTagId, searchQuery, currentPage]);
 
   const loadGameData = async () => {
     if (!gameSlug) return;
@@ -422,6 +427,7 @@ const GamePage: React.FC = () => {
       const response = await api.getMaterials({
         gameId: game.id,
         categoryId: selectedCategory || undefined,
+        tagId: selectedTagId || undefined,
         search: searchQuery || undefined,
         page: currentPage,
         limit: pageSize,
@@ -440,6 +446,11 @@ const GamePage: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleTagFilter = (tagId: number | null) => {
+    setSelectedTagId(tagId);
+    setCurrentPage(1);
+  };
+
   const handleCategoryClick = (categoryId: number | null) => {
     setSelectedCategory(categoryId);
     setCurrentPage(1);
@@ -449,10 +460,10 @@ const GamePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className={styles.root}>
+      <div style={{ minHeight: '100vh', backgroundColor: colors.pageBg }}>
         <div className={styles.spinnerContainer}>
           <Spinner size="large" />
-          <Text style={{ color: 'rgba(255, 255, 255, 0.6)' }}>加载中...</Text>
+          <Text style={{ color: colors.textSecondary }}>加载中...</Text>
         </div>
       </div>
     );
@@ -460,9 +471,9 @@ const GamePage: React.FC = () => {
 
   if (!game) {
     return (
-      <div className={styles.root}>
+      <div style={{ minHeight: '100vh', backgroundColor: colors.pageBg }}>
         <div className={styles.spinnerContainer}>
-          <Text style={{ color: 'white', fontSize: '24px', marginBottom: '16px' }}>游戏不存在</Text>
+          <Text style={{ color: colors.textPrimary, fontSize: '24px', marginBottom: '16px' }}>游戏不存在</Text>
           <Button appearance="primary" onClick={() => navigate('/')}>
             返回首页
           </Button>
@@ -472,23 +483,62 @@ const GamePage: React.FC = () => {
   }
 
   return (
-    <div className={styles.root}>
+    <div style={{ minHeight: '100vh', backgroundColor: colors.pageBg }}>
       {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerTitle} onClick={() => navigate('/')}>
-          HOYODB
+      <header style={{
+        background: colors.headerBg,
+        padding: '16px 32px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '24px',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        boxShadow: `0 4px 20px ${colors.shadow}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Mobile Menu */}
+          <MobileMenu title="素材分类" className={styles.mobileMenuButton}>
+            <Button
+              appearance="subtle"
+              style={{
+                justifyContent: 'flex-start',
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                marginBottom: '4px',
+                color: selectedCategory === null ? 'white' : colors.textSecondary,
+                backgroundColor: selectedCategory === null ? 'rgba(102, 126, 234, 0.3)' : 'transparent',
+              }}
+              onClick={() => handleCategoryClick(null)}
+            >
+              全部素材
+            </Button>
+            {categories.map((cat) => (
+              <Button
+                key={cat.id}
+                appearance="subtle"
+                style={{
+                  justifyContent: 'flex-start',
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  marginBottom: '4px',
+                  color: selectedCategory === cat.id ? 'white' : colors.textSecondary,
+                  backgroundColor: selectedCategory === cat.id ? 'rgba(102, 126, 234, 0.3)' : 'transparent',
+                }}
+                onClick={() => handleCategoryClick(cat.id)}
+              >
+                {cat.name}
+              </Button>
+            ))}
+          </MobileMenu>
+          <div style={{ color: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '24px' }} onClick={() => navigate('/')}>
+            HOYODB
+          </div>
         </div>
-        <div className={styles.searchBox}>
-          <Input
-            placeholder="搜索素材名称..."
-            contentBefore={<Search24Regular className={styles.searchIcon} />}
-            value={searchQuery}
-            onChange={(e, data) => handleSearch(data.value)}
-            className={styles.searchInput}
-            size="large"
-          />
-        </div>
-        <div className={styles.headerNav}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <ThemeToggle className={styles.headerButton} />
           <Button
             appearance="subtle"
             icon={<Home24Regular />}
@@ -501,30 +551,86 @@ const GamePage: React.FC = () => {
       </header>
 
       {/* Layout */}
-      <div className={styles.layout}>
+      <div style={{ display: 'flex', minHeight: 'calc(100vh - 64px)' }}>
         {/* Sidebar */}
-        <aside className={styles.sidebar}>
-          <div className={styles.sidebarHeader}>
-            <div className={styles.sidebarIcon}>
+        <aside style={{
+          width: '280px',
+          backgroundColor: colors.sidebarBg,
+          borderRight: `1px solid ${colors.border}`,
+          padding: '24px 16px',
+          position: 'sticky',
+          top: '64px',
+          height: 'calc(100vh - 64px)',
+          overflowY: 'auto',
+        }} className="responsive-sidebar">
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '20px',
+            padding: '0 8px',
+          }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: colors.gradientPrimary,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+            }}>
               <Filter24Regular />
             </div>
-            <div className={styles.sidebarTitle}>素材分类</div>
+            <div style={{ color: colors.textPrimary, fontSize: '18px', fontWeight: 'bold' }}>素材分类</div>
           </div>
 
           <Button
             appearance="subtle"
-            className={`${styles.navItem} ${selectedCategory === null ? styles.navItemActive : ''}`}
+            style={{
+              justifyContent: 'flex-start',
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              marginBottom: '4px',
+              color: selectedCategory === null ? 'white' : colors.textSecondary,
+              backgroundColor: selectedCategory === null
+                ? (isDark ? 'rgba(102, 126, 234, 0.3)' : 'rgba(99, 102, 241, 0.2)')
+                : 'transparent',
+              border: selectedCategory === null
+                ? (isDark ? '1px solid rgba(102, 126, 234, 0.5)' : '1px solid rgba(99, 102, 241, 0.3)')
+                : 'none',
+            }}
             onClick={() => handleCategoryClick(null)}
           >
             全部素材
-            <span className={styles.navItemCount}>{totalMaterials}</span>
+            <span style={{
+              marginLeft: 'auto',
+              backgroundColor: colors.buttonBg,
+              padding: '2px 8px',
+              borderRadius: '10px',
+              fontSize: '12px',
+            }}>{totalMaterials}</span>
           </Button>
 
           {categories.map((cat) => (
             <Button
               key={cat.id}
               appearance="subtle"
-              className={`${styles.navItem} ${selectedCategory === cat.id ? styles.navItemActive : ''}`}
+              style={{
+                justifyContent: 'flex-start',
+                width: '100%',
+                padding: '12px 16px',
+                borderRadius: '10px',
+                marginBottom: '4px',
+                color: selectedCategory === cat.id ? 'white' : colors.textSecondary,
+                backgroundColor: selectedCategory === cat.id
+                  ? (isDark ? 'rgba(102, 126, 234, 0.3)' : 'rgba(99, 102, 241, 0.2)')
+                  : 'transparent',
+                border: selectedCategory === cat.id
+                  ? (isDark ? '1px solid rgba(102, 126, 234, 0.5)' : '1px solid rgba(99, 102, 241, 0.3)')
+                  : 'none',
+              }}
               onClick={() => handleCategoryClick(cat.id)}
             >
               {cat.name}
@@ -533,19 +639,28 @@ const GamePage: React.FC = () => {
         </aside>
 
         {/* Content */}
-        <main className={styles.content}>
+        <main style={{ flexGrow: 1, padding: '32px' }}>
           {/* Breadcrumb */}
-          <div className={styles.breadcrumb}>
-            <span className={styles.breadcrumbLink} onClick={() => navigate('/')}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '24px',
+            fontSize: '14px',
+          }}>
+            <span
+              style={{ color: colors.textSecondary, cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              onClick={() => navigate('/')}
+            >
               <Home24Regular style={{ fontSize: 16, marginRight: 4 }} />
               首页
             </span>
-            <span className={styles.breadcrumbSeparator}>/</span>
-            <span className={styles.breadcrumbCurrent}>{game.name}</span>
+            <span style={{ color: colors.textMuted }}>/</span>
+            <span style={{ color: colors.textPrimary }}>{game.name}</span>
             {selectedCategory && (
               <>
-                <span className={styles.breadcrumbSeparator}>/</span>
-                <span className={styles.breadcrumbCurrent}>
+                <span style={{ color: colors.textMuted }}>/</span>
+                <span style={{ color: colors.textPrimary }}>
                   {categories.find((c) => c.id === selectedCategory)?.name}
                 </span>
               </>
@@ -553,67 +668,132 @@ const GamePage: React.FC = () => {
           </div>
 
           {/* Title Section */}
-          <div className={styles.titleSection}>
-            <h1 className={styles.pageTitle}>{game.name}</h1>
-            <p className={styles.pageSubtitle}>
+          <div style={{ marginBottom: '24px' }}>
+            <h1 style={{ color: colors.textPrimary, fontSize: '32px', fontWeight: 'bold', marginBottom: '8px' }}>{game.name}</h1>
+            <p style={{ color: colors.textSecondary, fontSize: '14px' }}>
               共 {totalMaterials} 个素材
               {selectedCategory && ` · ${categories.find((c) => c.id === selectedCategory)?.name}`}
             </p>
           </div>
 
+          {/* Search and Filter */}
+          <div style={{ marginBottom: '32px' }}>
+            <SearchFilter
+              gameId={game.id}
+              onSearch={handleSearch}
+              onTagFilter={handleTagFilter}
+              selectedTagId={selectedTagId}
+              searchQuery={searchQuery}
+            />
+          </div>
+
           {/* Materials Grid */}
           {materialsLoading ? (
-            <div className={styles.spinnerContainer}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '100px', flexDirection: 'column', gap: '16px' }}>
               <Spinner size="large" />
-              <Text style={{ color: 'rgba(255, 255, 255, 0.6)' }}>加载素材...</Text>
+              <Text style={{ color: colors.textSecondary }}>加载素材...</Text>
             </div>
           ) : materials.length === 0 ? (
-            <div className={styles.emptyState}>
-              <div className={styles.emptyIcon}>
+            <div style={{
+              textAlign: 'center',
+              padding: '80px 40px',
+              backgroundColor: colors.buttonBg,
+              borderRadius: '16px',
+              border: `1px dashed ${colors.border}`,
+            }}>
+              <div style={{ fontSize: '64px', color: colors.textMuted, marginBottom: '16px' }}>
                 <Document24Regular />
               </div>
-              <div className={styles.emptyTitle}>暂无素材</div>
-              <div className={styles.emptyText}>该分类下还没有上传任何素材</div>
+              <div style={{ color: colors.textPrimary, fontSize: '18px', marginBottom: '8px' }}>暂无素材</div>
+              <div style={{ color: colors.textSecondary, fontSize: '14px' }}>该分类下还没有上传任何素材</div>
             </div>
           ) : (
             <>
-              <div className={styles.grid}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '24px',
+              }}>
                 {materials.map((material) => (
                   <div
                     key={material.id}
-                    className={styles.card}
+                    style={{
+                      backgroundColor: colors.cardBg,
+                      borderRadius: '16px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      transition: 'transform 0.3s, box-shadow 0.3s',
+                      border: `1px solid ${colors.border}`,
+                    }}
                     onClick={() => navigate(`/material/${material.id}`)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-4px)';
+                      e.currentTarget.style.boxShadow = isDark
+                        ? '0 12px 24px rgba(102, 126, 234, 0.2)'
+                        : '0 12px 24px rgba(99, 102, 241, 0.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
                   >
-                    <div className={styles.cardPreview}>
+                    <div style={{
+                      height: '160px',
+                      background: colors.gradientSecondary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}>
                       {material.fileType.startsWith('image/') ? (
                         <img
                           src={material.filePath}
                           alt={material.title}
-                          className={styles.cardPreviewImage}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                           }}
                         />
                       ) : (
-                        <span className={styles.cardPreviewIcon}>
+                        <span style={{ fontSize: '48px', color: isDark ? '#667eea' : '#6366f1' }}>
                           {getFileIcon(material.fileType)}
                         </span>
                       )}
-                      <div className={styles.cardTypeIcon}>
+                      <div style={{
+                        position: 'absolute',
+                        top: '12px',
+                        right: '12px',
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: colors.gradientPrimary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontSize: '16px',
+                      }}>
                         {getFileIcon(material.fileType)}
                       </div>
                     </div>
-                    <div className={styles.cardContent}>
-                      <div className={styles.cardTitle}>{material.title}</div>
-                      <div className={styles.cardMeta}>
-                        <Badge appearance="tint" color="brand" shape="rounded" className={styles.cardCategory}>
+                    <div style={{ padding: '16px' }}>
+                      <div style={{
+                        color: colors.textPrimary,
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        marginBottom: '12px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>{material.title}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Badge appearance="tint" color="brand" shape="rounded">
                           {material.category?.name}
                         </Badge>
-                        <div className={styles.cardStats}>
-                          <span className={styles.cardStat}>
-                            {formatFileSize(material.fileSize)}
-                          </span>
-                          <span className={styles.cardStat}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: colors.textMuted, fontSize: '12px' }}>
+                          <span>{formatFileSize(material.fileSize)}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <ArrowDownload24Regular style={{ fontSize: 14 }} />
                             {material.downloadCount}
                           </span>
@@ -626,17 +806,30 @@ const GamePage: React.FC = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className={styles.pagination}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '16px',
+                  marginTop: '40px',
+                  padding: '20px',
+                  backgroundColor: colors.cardBg,
+                  borderRadius: '12px',
+                }}>
                   <Button
                     appearance="subtle"
                     icon={<ArrowLeft24Regular />}
                     disabled={currentPage <= 1}
                     onClick={() => setCurrentPage((p) => p - 1)}
-                    className={styles.paginationButton}
+                    style={{
+                      color: colors.textPrimary,
+                      backgroundColor: colors.buttonBg,
+                      border: `1px solid ${colors.border}`,
+                    }}
                   >
                     上一页
                   </Button>
-                  <span className={styles.paginationInfo}>
+                  <span style={{ color: colors.textSecondary, fontSize: '14px' }}>
                     第 {currentPage} 页 / 共 {totalPages} 页
                   </span>
                   <Button
@@ -645,7 +838,11 @@ const GamePage: React.FC = () => {
                     iconPosition="after"
                     disabled={currentPage >= totalPages}
                     onClick={() => setCurrentPage((p) => p + 1)}
-                    className={styles.paginationButton}
+                    style={{
+                      color: colors.textPrimary,
+                      backgroundColor: colors.buttonBg,
+                      border: `1px solid ${colors.border}`,
+                    }}
                   >
                     下一页
                   </Button>
@@ -657,8 +854,13 @@ const GamePage: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <footer className={styles.footer}>
-        <p className={styles.footerText}>
+      <footer style={{
+        backgroundColor: colors.footerBg,
+        padding: '24px 32px',
+        textAlign: 'center',
+        borderTop: `1px solid ${colors.border}`,
+      }}>
+        <p style={{ color: colors.textMuted, fontSize: '14px' }}>
           HOYODB ©{new Date().getFullYear()} | 仅供学习交流使用，素材版权归米哈游所有
         </p>
       </footer>

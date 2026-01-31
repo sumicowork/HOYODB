@@ -1,14 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Card,
   Button,
   Spinner,
   Text,
   Badge,
   makeStyles,
   shorthands,
-  tokens,
   MessageBar,
   MessageBarBody,
   Slider,
@@ -22,13 +20,15 @@ import {
   Document24Regular,
   Clock24Regular,
   Image24Regular,
-  MusicNote224Regular,
-  Video24Regular,
   Info24Regular,
   Share24Regular,
   Heart24Regular,
+  ZoomIn24Regular,
 } from '@fluentui/react-icons';
 import { api, Material } from '../services/api';
+import ImageLightbox from '../components/ImageLightbox';
+import ThemeToggle from '../components/ThemeToggle';
+import { useTheme } from '../contexts/ThemeContext';
 
 const useStyles = makeStyles({
   root: {
@@ -100,6 +100,27 @@ const useStyles = makeStyles({
     maxWidth: '100%',
     maxHeight: '600px',
     objectFit: 'contain' as const,
+    cursor: 'pointer',
+    transitionProperty: 'transform, box-shadow',
+    transitionDuration: '0.2s',
+    ':hover': {
+      transform: 'scale(1.02)',
+      boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)',
+    },
+  },
+  imageOverlay: {
+    position: 'absolute' as const,
+    bottom: '16px',
+    right: '16px',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    ...shorthands.padding('8px', '16px'),
+    ...shorthands.borderRadius('8px'),
+    display: 'flex',
+    alignItems: 'center',
+    ...shorthands.gap('8px'),
+    color: 'white',
+    fontSize: '14px',
+    pointerEvents: 'none' as const,
   },
   audioPreview: {
     textAlign: 'center',
@@ -316,6 +337,7 @@ const formatDuration = (seconds: number) => {
 
 const MaterialDetailPage: React.FC = () => {
   const styles = useStyles();
+  const { colors, isDark } = useTheme();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -325,6 +347,7 @@ const MaterialDetailPage: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -398,10 +421,10 @@ const MaterialDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className={styles.root}>
+      <div style={{ minHeight: '100vh', backgroundColor: colors.pageBg }}>
         <div className={styles.spinnerContainer}>
           <Spinner size="large" />
-          <Text style={{ color: 'rgba(255, 255, 255, 0.6)' }}>加载中...</Text>
+          <Text style={{ color: colors.textSecondary }}>加载中...</Text>
         </div>
       </div>
     );
@@ -409,9 +432,9 @@ const MaterialDetailPage: React.FC = () => {
 
   if (!material) {
     return (
-      <div className={styles.root}>
+      <div style={{ minHeight: '100vh', backgroundColor: colors.pageBg }}>
         <div className={styles.spinnerContainer}>
-          <Text style={{ color: 'white', fontSize: '24px', marginBottom: '16px' }}>素材不存在</Text>
+          <Text style={{ color: colors.textPrimary, fontSize: '24px', marginBottom: '16px' }}>素材不存在</Text>
           <Button appearance="primary" onClick={() => navigate(-1)}>
             返回
           </Button>
@@ -425,13 +448,24 @@ const MaterialDetailPage: React.FC = () => {
   const isVideo = material.fileType.startsWith('video/');
 
   return (
-    <div className={styles.root}>
+    <div style={{ minHeight: '100vh', backgroundColor: colors.pageBg }}>
       {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerTitle} onClick={() => navigate('/')}>
+      <header style={{
+        background: colors.headerBg,
+        padding: '16px 32px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        boxShadow: `0 4px 20px ${colors.shadow}`,
+      }}>
+        <div style={{ color: 'white', cursor: 'pointer', fontWeight: 'bold', fontSize: '24px' }} onClick={() => navigate('/')}>
           HOYODB
         </div>
-        <div className={styles.headerNav}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <ThemeToggle className={styles.headerButton} />
           <Button
             appearance="subtle"
             icon={<Home24Regular />}
@@ -444,12 +478,12 @@ const MaterialDetailPage: React.FC = () => {
       </header>
 
       {/* Content */}
-      <main className={styles.content}>
+      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '32px' }}>
         {/* Back Button */}
         <Button
           appearance="subtle"
           icon={<ArrowLeft24Regular />}
-          className={styles.backButton}
+          style={{ marginBottom: '24px', color: colors.textSecondary }}
           onClick={() => navigate(-1)}
         >
           返回列表
@@ -466,28 +500,80 @@ const MaterialDetailPage: React.FC = () => {
         )}
 
         {/* Grid */}
-        <div className={styles.grid}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 420px',
+          gap: '32px',
+        }} className="responsive-detail-grid">
           {/* Preview Section */}
-          <div className={styles.previewSection}>
-            <div className={styles.previewContainer}>
+          <div style={{
+            backgroundColor: colors.cardBg,
+            borderRadius: '20px',
+            overflow: 'hidden',
+            border: `1px solid ${colors.border}`,
+          }}>
+            <div style={{
+              position: 'relative',
+              minHeight: '400px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: colors.gradientSecondary,
+            }}>
               {isImage && (
-                <img
-                  src={material.filePath}
-                  alt={material.title}
-                  className={styles.previewImage}
-                />
+                <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => setLightboxOpen(true)}>
+                  <img
+                    src={material.filePath}
+                    alt={material.title}
+                    style={{ maxWidth: '100%', maxHeight: '600px', objectFit: 'contain' }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    right: '16px',
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: 'white',
+                    fontSize: '14px',
+                    pointerEvents: 'none',
+                  }}>
+                    <ZoomIn24Regular />
+                    点击放大
+                  </div>
+                </div>
               )}
 
               {isAudio && (
-                <div className={styles.audioPreview}>
-                  <div className={styles.audioIconWrapper} onClick={togglePlay}>
+                <div style={{ textAlign: 'center', padding: '60px' }}>
+                  <div
+                    style={{
+                      width: '120px',
+                      height: '120px',
+                      borderRadius: '50%',
+                      background: colors.gradientPrimary,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 32px',
+                      boxShadow: isDark ? '0 10px 40px rgba(102, 126, 234, 0.4)' : '0 10px 40px rgba(99, 102, 241, 0.3)',
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s',
+                    }}
+                    onClick={togglePlay}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  >
                     {isPlaying ? (
-                      <Pause24Filled className={styles.audioIcon} />
+                      <Pause24Filled style={{ fontSize: '48px', color: 'white' }} />
                     ) : (
-                      <Play24Filled className={styles.audioIcon} />
+                      <Play24Filled style={{ fontSize: '48px', color: 'white' }} />
                     )}
                   </div>
-                  <Text style={{ color: 'white', fontSize: '18px' }}>
+                  <Text style={{ color: colors.textPrimary, fontSize: '18px' }}>
                     {material.title}
                   </Text>
                   <audio
@@ -505,27 +591,41 @@ const MaterialDetailPage: React.FC = () => {
                 <video
                   src={material.filePath}
                   controls
-                  className={styles.videoPlayer}
+                  style={{ width: '100%', maxHeight: '600px' }}
                 />
               )}
 
               {!isImage && !isAudio && !isVideo && (
-                <div className={styles.noPreview}>
-                  <Document24Regular className={styles.noPreviewIcon} />
-                  <Text className={styles.noPreviewText}>此文件类型不支持预览</Text>
+                <div style={{ textAlign: 'center', padding: '80px' }}>
+                  <Document24Regular style={{ fontSize: '80px', color: colors.textMuted, marginBottom: '16px' }} />
+                  <Text style={{ color: colors.textSecondary }}>此文件类型不支持预览</Text>
                 </div>
               )}
             </div>
 
             {isAudio && (
-              <div className={styles.audioControls}>
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '24px',
+                backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              }}>
                 <Slider
                   value={currentTime}
                   max={duration || 100}
                   onChange={(e, data) => handleSeek(data.value)}
-                  className={styles.audioProgress}
+                  style={{ width: '100%', maxWidth: '400px' }}
                 />
-                <div className={styles.audioTime}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  width: '100%',
+                  maxWidth: '400px',
+                  color: colors.textMuted,
+                  fontSize: '12px',
+                }}>
                   <span>{formatDuration(Math.floor(currentTime))}</span>
                   <span>{formatDuration(Math.floor(duration))}</span>
                 </div>
@@ -534,12 +634,23 @@ const MaterialDetailPage: React.FC = () => {
           </div>
 
           {/* Info Section */}
-          <div className={styles.infoSection}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {/* Main Info Card */}
-            <div className={styles.infoCard}>
-              <h1 className={styles.title}>{material.title}</h1>
+            <div style={{
+              backgroundColor: colors.cardBg,
+              borderRadius: '20px',
+              padding: '28px',
+              border: `1px solid ${colors.border}`,
+            }}>
+              <h1 style={{
+                color: colors.textPrimary,
+                fontSize: '28px',
+                fontWeight: 'bold',
+                marginBottom: '16px',
+                lineHeight: '1.3',
+              }}>{material.title}</h1>
 
-              <div className={styles.tags}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '20px' }}>
                 <Badge appearance="filled" color="brand" shape="rounded">
                   {material.game?.name}
                 </Badge>
@@ -554,61 +665,63 @@ const MaterialDetailPage: React.FC = () => {
               </div>
 
               {material.description && (
-                <p className={styles.description}>{material.description}</p>
+                <p style={{ color: colors.textSecondary, fontSize: '15px', lineHeight: '1.6', marginBottom: '24px' }}>
+                  {material.description}
+                </p>
               )}
 
-              <div className={styles.divider} />
+              <div style={{ height: '1px', backgroundColor: colors.border, marginBottom: '20px' }} />
 
-              <div className={styles.infoList}>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: colors.textMuted, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Document24Regular style={{ fontSize: 16 }} />
                     文件大小
                   </span>
-                  <span className={styles.infoValue}>{formatFileSize(material.fileSize)}</span>
+                  <span style={{ color: colors.textPrimary, fontSize: '14px', fontWeight: '500' }}>{formatFileSize(material.fileSize)}</span>
                 </div>
-                <div className={styles.infoItem}>
-                  <span className={styles.infoLabel}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: colors.textMuted, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Info24Regular style={{ fontSize: 16 }} />
                     文件类型
                   </span>
-                  <span className={styles.infoValue}>{material.fileType}</span>
+                  <span style={{ color: colors.textPrimary, fontSize: '14px', fontWeight: '500' }}>{material.fileType}</span>
                 </div>
                 {material.resolution && (
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: colors.textMuted, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Image24Regular style={{ fontSize: 16 }} />
                       分辨率
                     </span>
-                    <span className={styles.infoValue}>{material.resolution}</span>
+                    <span style={{ color: colors.textPrimary, fontSize: '14px', fontWeight: '500' }}>{material.resolution}</span>
                   </div>
                 )}
                 {material.duration && (
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: colors.textMuted, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <Clock24Regular style={{ fontSize: 16 }} />
                       时长
                     </span>
-                    <span className={styles.infoValue}>{formatDuration(material.duration)}</span>
+                    <span style={{ color: colors.textPrimary, fontSize: '14px', fontWeight: '500' }}>{formatDuration(material.duration)}</span>
                   </div>
                 )}
                 {material.version && (
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: colors.textMuted, fontSize: '14px' }}>
                       游戏版本
                     </span>
-                    <span className={styles.infoValue}>{material.version}</span>
+                    <span style={{ color: colors.textPrimary, fontSize: '14px', fontWeight: '500' }}>{material.version}</span>
                   </div>
                 )}
               </div>
 
               {material.tags && material.tags.length > 0 && (
                 <>
-                  <div className={styles.divider} style={{ marginTop: 20 }} />
-                  <Text style={{ color: 'rgba(255, 255, 255, 0.5)', marginBottom: 12, display: 'block' }}>
+                  <div style={{ height: '1px', backgroundColor: colors.border, marginTop: '20px' }} />
+                  <Text style={{ color: colors.textMuted, marginBottom: 12, display: 'block', marginTop: '20px' }}>
                     标签
                   </Text>
-                  <div className={styles.materialTags}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                     {material.tags.map(({ tag }) => (
                       <Badge key={tag.id} appearance="outline" shape="rounded">
                         {tag.name}
@@ -620,43 +733,73 @@ const MaterialDetailPage: React.FC = () => {
             </div>
 
             {/* Action Card */}
-            <div className={styles.actionCard}>
+            <div style={{
+              backgroundColor: colors.cardBg,
+              borderRadius: '20px',
+              padding: '24px',
+              border: `1px solid ${colors.border}`,
+            }}>
               <Button
                 appearance="primary"
                 icon={<ArrowDownload24Regular />}
-                className={styles.downloadButton}
+                style={{
+                  width: '100%',
+                  height: '56px',
+                  borderRadius: '14px',
+                  background: colors.gradientPrimary,
+                  fontWeight: '600',
+                  fontSize: '16px',
+                  border: 'none',
+                  boxShadow: isDark ? '0 8px 24px rgba(102, 126, 234, 0.4)' : '0 8px 24px rgba(99, 102, 241, 0.3)',
+                }}
                 onClick={handleDownload}
               >
                 免费下载
               </Button>
 
-              <div className={styles.actionButtons}>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
                 <Button
                   appearance="subtle"
                   icon={<Share24Regular />}
-                  className={styles.actionButton}
+                  style={{
+                    flex: 1,
+                    color: colors.textSecondary,
+                    backgroundColor: colors.buttonBg,
+                    border: `1px solid ${colors.border}`,
+                  }}
                 >
                   分享
                 </Button>
                 <Button
                   appearance="subtle"
                   icon={<Heart24Regular />}
-                  className={styles.actionButton}
+                  style={{
+                    flex: 1,
+                    color: colors.textSecondary,
+                    backgroundColor: colors.buttonBg,
+                    border: `1px solid ${colors.border}`,
+                  }}
                 >
                   收藏
                 </Button>
               </div>
 
-              <div className={styles.statsRow}>
-                <div className={styles.statItem}>
-                  <div className={styles.statValue}>{material.downloadCount}</div>
-                  <div className={styles.statLabel}>下载次数</div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-around',
+                padding: '16px 0',
+                marginTop: '16px',
+                borderTop: `1px solid ${colors.border}`,
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: colors.textPrimary, fontSize: '24px', fontWeight: 'bold' }}>{material.downloadCount}</div>
+                  <div style={{ color: colors.textMuted, fontSize: '12px', marginTop: '4px' }}>下载次数</div>
                 </div>
-                <div className={styles.statItem}>
-                  <div className={styles.statValue}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ color: colors.textPrimary, fontSize: '24px', fontWeight: 'bold' }}>
                     {new Date(material.uploadTime).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })}
                   </div>
-                  <div className={styles.statLabel}>上传日期</div>
+                  <div style={{ color: colors.textMuted, fontSize: '12px', marginTop: '4px' }}>上传日期</div>
                 </div>
               </div>
             </div>
@@ -665,11 +808,28 @@ const MaterialDetailPage: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className={styles.footer}>
-        <p className={styles.footerText}>
+      <footer style={{
+        backgroundColor: colors.footerBg,
+        padding: '24px 32px',
+        textAlign: 'center',
+        borderTop: `1px solid ${colors.border}`,
+        marginTop: '48px',
+      }}>
+        <p style={{ color: colors.textMuted, fontSize: '14px' }}>
           HOYODB ©{new Date().getFullYear()} | 仅供学习交流使用，素材版权归米哈游所有
         </p>
       </footer>
+
+      {/* Image Lightbox */}
+      {isImage && (
+        <ImageLightbox
+          src={material.filePath}
+          alt={material.title}
+          isOpen={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onDownload={handleDownload}
+        />
+      )}
     </div>
   );
 };

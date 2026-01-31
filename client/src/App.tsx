@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { FluentProvider, webLightTheme } from '@fluentui/react-components';
+import { FluentProvider } from '@fluentui/react-components';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import './App.css';
 
 // Pages
@@ -14,9 +15,11 @@ import CategoriesManagePage from './pages/admin/CategoriesPage';
 import TagsManagePage from './pages/admin/TagsPage';
 import GamesManagePage from './pages/admin/GamesPage';
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { theme } = useTheme();
+
   return (
-    <FluentProvider theme={webLightTheme}>
+    <FluentProvider theme={theme}>
       <Router>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -31,6 +34,14 @@ const App: React.FC = () => {
         </Routes>
       </Router>
     </FluentProvider>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 };
 

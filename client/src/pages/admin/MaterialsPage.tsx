@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -38,6 +38,9 @@ import {
   Filter24Regular,
   ArrowLeft24Regular,
   ArrowRight24Regular,
+  ArrowUpload24Regular,
+  Document24Regular,
+  Dismiss16Regular,
 } from '@fluentui/react-icons';
 import AdminLayout from '../../components/AdminLayout';
 import { adminApi, Material, Game, Category, Tag } from '../../services/api';
@@ -142,11 +145,57 @@ const useStyles = makeStyles({
   statusBadge: {
     fontWeight: '500',
   },
+  fileUploadZone: {
+    ...shorthands.border('2px', 'dashed', tokens.colorNeutralStroke1),
+    ...shorthands.borderRadius('8px'),
+    ...shorthands.padding('24px'),
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transitionProperty: 'all',
+    transitionDuration: '0.2s',
+    backgroundColor: tokens.colorNeutralBackground2,
+    ':hover': {
+      borderColor: tokens.colorBrandStroke1,
+      backgroundColor: tokens.colorNeutralBackground3,
+    },
+  },
+  fileUploadIcon: {
+    fontSize: '32px',
+    color: tokens.colorBrandForeground1,
+    marginBottom: '8px',
+  },
+  selectedFileCard: {
+    display: 'flex',
+    alignItems: 'center',
+    ...shorthands.gap('12px'),
+    ...shorthands.padding('12px'),
+    ...shorthands.borderRadius('8px'),
+    backgroundColor: tokens.colorNeutralBackground3,
+    ...shorthands.border('1px', 'solid', tokens.colorNeutralStroke1),
+  },
+  fileIconWrapper: {
+    width: '40px',
+    height: '40px',
+    ...shorthands.borderRadius('8px'),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colorBrandBackground2,
+    color: tokens.colorBrandForeground1,
+  },
+  fileDetails: {
+    flexGrow: 1,
+    minWidth: 0,
+  },
 });
 
 const MaterialsManagePage: React.FC = () => {
   const styles = useStyles();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [materials, setMaterials] = useState<Material[]>([]);
   const [games, setGames] = useState<Game[]>([]);
@@ -175,6 +224,7 @@ const MaterialsManagePage: React.FC = () => {
     status: 'PUBLISHED',
     tagIds: [] as string[],
   });
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
@@ -247,6 +297,7 @@ const MaterialsManagePage: React.FC = () => {
       status: 'PUBLISHED',
       tagIds: [],
     });
+    setPendingFile(null);
     setDialogOpen(true);
   };
 
@@ -267,6 +318,7 @@ const MaterialsManagePage: React.FC = () => {
       status: material.status,
       tagIds: material.tags?.map((t) => String(t.tag.id)) || [],
     });
+    setPendingFile(null);
     setDialogOpen(true);
   };
 
@@ -284,30 +336,51 @@ const MaterialsManagePage: React.FC = () => {
 
   const handleSubmit = async () => {
     try {
-      const data = {
-        gameId: parseInt(formData.gameId),
-        categoryId: parseInt(formData.categoryId),
-        title: formData.title,
-        description: formData.description || undefined,
-        filePath: formData.filePath,
-        fileSize: formData.fileSize,
-        fileType: formData.fileType,
-        duration: formData.duration ? parseInt(formData.duration) : undefined,
-        resolution: formData.resolution || undefined,
-        version: formData.version || undefined,
-        status: formData.status,
-        tagIds: formData.tagIds.map((id) => parseInt(id)),
-      };
-
       if (editingMaterial) {
+        // 编辑模式：使用原来的 updateMaterial API
+        const data = {
+          gameId: parseInt(formData.gameId),
+          categoryId: parseInt(formData.categoryId),
+          title: formData.title,
+          description: formData.description || undefined,
+          filePath: formData.filePath,
+          fileSize: formData.fileSize,
+          fileType: formData.fileType,
+          duration: formData.duration ? parseInt(formData.duration) : undefined,
+          resolution: formData.resolution || undefined,
+          version: formData.version || undefined,
+          status: formData.status as 'PUBLISHED' | 'DRAFT' | 'ARCHIVED',
+          tagIds: formData.tagIds.map((id) => parseInt(id)),
+        };
         await adminApi.updateMaterial(editingMaterial.id, data);
         setMessage({ type: 'success', text: '更新成功' });
       } else {
-        await adminApi.createMaterial(data);
+        // 新建模式：使用带文件上传的原子操作 API
+        const selectedGame = games.find(g => g.id === parseInt(formData.gameId));
+        const selectedCategory = categories.find(c => c.id === parseInt(formData.categoryId));
+
+        await adminApi.createMaterialWithUpload({
+          file: pendingFile || undefined,
+          gameId: parseInt(formData.gameId),
+          gameSlug: selectedGame?.slug || '',
+          categoryId: parseInt(formData.categoryId),
+          categorySlug: selectedCategory?.slug,
+          title: formData.title,
+          description: formData.description || undefined,
+          filePath: pendingFile ? undefined : formData.filePath,
+          fileSize: pendingFile ? undefined : formData.fileSize,
+          fileType: pendingFile ? undefined : formData.fileType,
+          duration: formData.duration ? parseInt(formData.duration) : undefined,
+          resolution: formData.resolution || undefined,
+          version: formData.version || undefined,
+          status: formData.status as 'PUBLISHED' | 'DRAFT' | 'ARCHIVED',
+          tagIds: formData.tagIds.map((id) => parseInt(id)),
+        });
         setMessage({ type: 'success', text: '创建成功' });
       }
 
       setDialogOpen(false);
+      setPendingFile(null);
       loadMaterials();
     } catch (error) {
       setMessage({ type: 'error', text: '操作失败' });
@@ -557,11 +630,98 @@ const MaterialsManagePage: React.FC = () => {
                   />
                 </Field>
 
+                {/* 文件上传区域 - 仅在新建时显示 */}
+                {!editingMaterial && formData.gameId && (
+                  <Field label="选择文件" className={styles.formFullWidth}>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,audio/*,video/*,.pdf,.zip,.rar"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setPendingFile(file);
+                          setFormData({
+                            ...formData,
+                            filePath: '',
+                            fileSize: String(file.size),
+                            fileType: file.type,
+                          });
+                        }
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                    {!pendingFile ? (
+                      <div
+                        className={styles.fileUploadZone}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <ArrowUpload24Regular className={styles.fileUploadIcon} />
+                        <Text weight="semibold" style={{ marginBottom: '4px' }}>
+                          点击选择文件
+                        </Text>
+                        <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                          支持图片、音频、视频、PDF、压缩包等格式
+                        </Text>
+                      </div>
+                    ) : (
+                      <div className={styles.selectedFileCard}>
+                        <div className={styles.fileIconWrapper}>
+                          <Document24Regular />
+                        </div>
+                        <div className={styles.fileDetails}>
+                          <Text
+                            weight="semibold"
+                            style={{
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {pendingFile.name}
+                          </Text>
+                          <Text size={200} style={{ color: tokens.colorNeutralForeground3 }}>
+                            {(pendingFile.size / 1024 / 1024).toFixed(2)} MB
+                          </Text>
+                        </div>
+                        <Tooltip content="移除文件" relationship="label">
+                          <Button
+                            appearance="subtle"
+                            icon={<Dismiss16Regular />}
+                            size="small"
+                            onClick={() => {
+                              setPendingFile(null);
+                              setFormData({
+                                ...formData,
+                                filePath: '',
+                                fileSize: '',
+                                fileType: '',
+                              });
+                              if (fileInputRef.current) {
+                                fileInputRef.current.value = '';
+                              }
+                            }}
+                          />
+                        </Tooltip>
+                        <Tooltip content="更换文件" relationship="label">
+                          <Button
+                            appearance="subtle"
+                            icon={<ArrowUpload24Regular />}
+                            size="small"
+                            onClick={() => fileInputRef.current?.click()}
+                          />
+                        </Tooltip>
+                      </div>
+                    )}
+                  </Field>
+                )}
+
                 <Field label="文件路径" required className={styles.formFullWidth}>
                   <Input
                     value={formData.filePath}
                     onChange={(e, data) => setFormData({ ...formData, filePath: data.value })}
-                    placeholder="云盘文件链接"
+                    placeholder="云盘文件链接（上传后自动填写或手动输入）"
                   />
                 </Field>
 

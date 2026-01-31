@@ -81,7 +81,7 @@ npm install
 
 ### 3. 配置数据库
 
-编辑 `server/.env` 文件：
+编辑 `server/.env` 文件（参考 `.env.example`）：
 
 ```env
 DATABASE_URL="postgresql://postgres:你的密码@localhost:5432/hoyodb?schema=public"
@@ -89,7 +89,24 @@ JWT_SECRET="你的JWT密钥"
 PORT=3000
 ```
 
-### 4. 初始化数据库
+### 4. 配置 OpenList 云盘（可选）
+
+如果要使用文件上传功能，需要配置 OpenList WebDAV：
+
+```env
+# WebDAV 配置
+WEBDAV_URL=http://localhost:5244/dav
+WEBDAV_USERNAME=admin
+WEBDAV_PASSWORD=your-password
+WEBDAV_BASE_PATH=/hoyodb
+
+# 公开访问 URL
+OPENLIST_PUBLIC_URL=http://localhost:5244/d
+```
+
+确保 OpenList 已启动并配置了 WebDAV 访问权限。
+
+### 5. 初始化数据库
 
 ```bash
 cd server
@@ -98,7 +115,7 @@ npx prisma migrate dev
 npx prisma db seed
 ```
 
-### 5. 启动开发服务器
+### 6. 启动开发服务器
 
 **方法一：使用启动脚本**
 
@@ -118,7 +135,7 @@ cd client
 npm run dev
 ```
 
-### 6. 访问应用
+### 7. 访问应用
 
 - 前端首页: http://localhost:5173
 - 管理后台: http://localhost:5173/admin/login

@@ -9,6 +9,7 @@ router.get('/', async (req: Request, res: Response) => {
     const {
       gameId,
       categoryId,
+      tagId,
       search,
       page = '1',
       limit = '20',
@@ -28,6 +29,14 @@ router.get('/', async (req: Request, res: Response) => {
 
     if (categoryId) {
       where.categoryId = parseInt(categoryId as string);
+    }
+
+    if (tagId) {
+      where.tags = {
+        some: {
+          tagId: parseInt(tagId as string),
+        },
+      };
     }
 
     if (search) {
@@ -68,6 +77,50 @@ router.get('/', async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: '获取素材列表失败', error });
+  }
+});
+
+// 获取热门素材 (放在 /:id 之前)
+router.get('/stats/popular', async (req: Request, res: Response) => {
+  try {
+    const { limit = '10' } = req.query;
+    const limitNum = parseInt(limit as string);
+
+    const materials = await prisma.material.findMany({
+      where: { status: 'PUBLISHED' },
+      include: {
+        game: true,
+        category: true,
+      },
+      orderBy: { downloadCount: 'desc' },
+      take: limitNum,
+    });
+
+    res.json({ success: true, data: materials });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '获取热门素材失败', error });
+  }
+});
+
+// 获取最新素材 (放在 /:id 之前)
+router.get('/stats/recent', async (req: Request, res: Response) => {
+  try {
+    const { limit = '10' } = req.query;
+    const limitNum = parseInt(limit as string);
+
+    const materials = await prisma.material.findMany({
+      where: { status: 'PUBLISHED' },
+      include: {
+        game: true,
+        category: true,
+      },
+      orderBy: { uploadTime: 'desc' },
+      take: limitNum,
+    });
+
+    res.json({ success: true, data: materials });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '获取最新素材失败', error });
   }
 });
 
@@ -129,6 +182,50 @@ router.post('/:id/download', async (req: Request, res: Response) => {
     res.json({ success: true, message: '下载记录已保存' });
   } catch (error) {
     res.status(500).json({ success: false, message: '记录下载失败', error });
+  }
+});
+
+// 获取热门素材
+router.get('/stats/popular', async (req: Request, res: Response) => {
+  try {
+    const { limit = '10' } = req.query;
+    const limitNum = parseInt(limit as string);
+
+    const materials = await prisma.material.findMany({
+      where: { status: 'PUBLISHED' },
+      include: {
+        game: true,
+        category: true,
+      },
+      orderBy: { downloadCount: 'desc' },
+      take: limitNum,
+    });
+
+    res.json({ success: true, data: materials });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '获取热门素材失败', error });
+  }
+});
+
+// 获取最新素材
+router.get('/stats/recent', async (req: Request, res: Response) => {
+  try {
+    const { limit = '10' } = req.query;
+    const limitNum = parseInt(limit as string);
+
+    const materials = await prisma.material.findMany({
+      where: { status: 'PUBLISHED' },
+      include: {
+        game: true,
+        category: true,
+      },
+      orderBy: { uploadTime: 'desc' },
+      take: limitNum,
+    });
+
+    res.json({ success: true, data: materials });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '获取最新素材失败', error });
   }
 });
 

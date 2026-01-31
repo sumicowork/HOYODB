@@ -1,8 +1,20 @@
 import { Router, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
 import prisma from '../prisma';
 import { authMiddleware, AuthRequest } from '../middleware/auth.middleware';
+import webdavService from '../services/webdav.service';
 
 const router = Router();
+
+// 配置 multer 内存存储
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB 限制
+  },
+});
 
 // 所有管理员路由都需要认证
 router.use(authMiddleware);
@@ -307,6 +319,131 @@ router.post('/materials', async (req: AuthRequest, res: Response) => {
     res.status(201).json({ success: true, data: material });
   } catch (error) {
     console.error('创建素材失败:', error);
+    res.status(500).json({ success: false, message: '创建素材失败', error });
+  }
+});
+
+// 创建素材（带文件上传的原子操作）
+router.post('/materials/with-upload', upload.single('file'), async (req: AuthRequest, res: Response) => {
+  let uploadedFilePath: string | null = null;
+  let uploadedFilename: string | null = null;
+
+  try {
+    const {
+      gameId,
+      gameSlug,
+      categoryId,
+      categorySlug,
+      title,
+      description,
+      duration,
+      resolution,
+      version,
+      isFeatured,
+      status,
+      tagIds,
+    } = req.body;
+
+    // 验证必填字段
+    if (!gameId || !categoryId || !title) {
+      return res.status(400).json({
+        success: false,
+        message: '游戏ID、分类ID和标题不能为空',
+      });
+    }
+
+    // 如果有文件上传，先上传到 WebDAV
+    let filePath = req.body.filePath || '';
+    let fileSize = req.body.fileSize || '0';
+    let fileType = req.body.fileType || '';
+
+    if (req.file) {
+      const remotePath = categorySlug
+        ? `/${gameSlug}/${categorySlug}`
+        : `/${gameSlug}`;
+
+      // 生成唯一文件名
+      const ext = path.extname(req.file.originalname);
+      const timestamp = Date.now();
+      const randomStr = Math.random().toString(36).substring(2, 8);
+      const filename = `${timestamp}-${randomStr}${ext}`;
+
+      // 上传到 WebDAV
+      filePath = await webdavService.uploadFile(
+        req.file.buffer,
+        remotePath,
+        filename
+      );
+
+      // 记录上传的文件信息用于失败时回滚
+      uploadedFilePath = remotePath;
+      uploadedFilename = filename;
+
+      fileSize = String(req.file.size);
+      fileType = req.file.mimetype;
+    }
+
+    if (!filePath || !fileSize || !fileType) {
+      return res.status(400).json({
+        success: false,
+        message: '必须上传文件或提供文件路径、大小和类型',
+      });
+    }
+
+    // 解析 tagIds
+    let parsedTagIds: number[] = [];
+    if (tagIds) {
+      try {
+        parsedTagIds = typeof tagIds === 'string' ? JSON.parse(tagIds) : tagIds;
+      } catch {
+        parsedTagIds = [];
+      }
+    }
+
+    // 创建素材记录
+    const material = await prisma.material.create({
+      data: {
+        gameId: parseInt(gameId),
+        categoryId: parseInt(categoryId),
+        title,
+        description: description || undefined,
+        filePath,
+        fileSize: BigInt(fileSize),
+        fileType,
+        duration: duration ? parseInt(duration) : undefined,
+        resolution: resolution || undefined,
+        version: version || undefined,
+        isFeatured: isFeatured === 'true' || isFeatured === true,
+        status: status || 'PUBLISHED',
+        tags: parsedTagIds.length
+          ? {
+              create: parsedTagIds.map((tagId: number) => ({
+                tag: { connect: { id: tagId } },
+              })),
+            }
+          : undefined,
+      },
+      include: {
+        game: true,
+        category: true,
+        tags: { include: { tag: true } },
+      },
+    });
+
+    res.status(201).json({ success: true, data: material });
+  } catch (error) {
+    console.error('创建素材失败:', error);
+
+    // 如果素材创建失败且已上传文件，则删除已上传的文件
+    if (uploadedFilePath && uploadedFilename) {
+      try {
+        await webdavService.deleteFile(uploadedFilePath, uploadedFilename);
+        console.log('已回滚上传的文件:', uploadedFilePath, uploadedFilename);
+      } catch (rollbackError) {
+        console.error('回滚文件删除失败:', rollbackError);
+      }
+    }
+
     res.status(500).json({ success: false, message: '创建素材失败', error });
   }
 });

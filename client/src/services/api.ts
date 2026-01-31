@@ -114,12 +114,17 @@ export const api = {
   getMaterials: (params?: {
     gameId?: number;
     categoryId?: number;
+    tagId?: number;
     search?: string;
     page?: number;
     limit?: number;
   }) => apiClient.get<PaginatedResponse<Material>>('/api/materials', { params }),
   getMaterial: (id: number) => apiClient.get<ApiResponse<Material>>(`/api/materials/${id}`),
   recordDownload: (id: number) => apiClient.post(`/api/materials/${id}/download`),
+  getPopularMaterials: (limit?: number) =>
+    apiClient.get<ApiResponse<Material[]>>('/api/materials/stats/popular', { params: { limit } }),
+  getRecentMaterials: (limit?: number) =>
+    apiClient.get<ApiResponse<Material[]>>('/api/materials/stats/recent', { params: { limit } }),
 
   // 标签
   getTags: (type?: string) => apiClient.get<ApiResponse<Tag[]>>('/api/tags', { params: { type } }),
@@ -165,6 +170,52 @@ export const adminApi = {
   }) => apiClient.get<PaginatedResponse<Material>>('/api/admin/materials', { params }),
   createMaterial: (data: Partial<Material> & { tagIds?: number[] }) =>
     apiClient.post('/api/admin/materials', data),
+  // 创建素材（带文件上传的原子操作）
+  createMaterialWithUpload: (data: {
+    file?: File;
+    gameId: number;
+    gameSlug: string;
+    categoryId: number;
+    categorySlug?: string;
+    title: string;
+    description?: string;
+    filePath?: string;
+    fileSize?: string;
+    fileType?: string;
+    duration?: number;
+    resolution?: string;
+    version?: string;
+    isFeatured?: boolean;
+    status?: string;
+    tagIds?: number[];
+  }) => {
+    const formData = new FormData();
+    if (data.file) {
+      formData.append('file', data.file);
+    }
+    formData.append('gameId', String(data.gameId));
+    formData.append('gameSlug', data.gameSlug);
+    formData.append('categoryId', String(data.categoryId));
+    if (data.categorySlug) formData.append('categorySlug', data.categorySlug);
+    formData.append('title', data.title);
+    if (data.description) formData.append('description', data.description);
+    if (data.filePath) formData.append('filePath', data.filePath);
+    if (data.fileSize) formData.append('fileSize', data.fileSize);
+    if (data.fileType) formData.append('fileType', data.fileType);
+    if (data.duration) formData.append('duration', String(data.duration));
+    if (data.resolution) formData.append('resolution', data.resolution);
+    if (data.version) formData.append('version', data.version);
+    if (data.isFeatured !== undefined) formData.append('isFeatured', String(data.isFeatured));
+    if (data.status) formData.append('status', data.status);
+    if (data.tagIds && data.tagIds.length > 0) {
+      formData.append('tagIds', JSON.stringify(data.tagIds));
+    }
+    return apiClient.post<ApiResponse<Material>>('/api/admin/materials/with-upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
   updateMaterial: (id: number, data: Partial<Material> & { tagIds?: number[] }) =>
     apiClient.put(`/api/admin/materials/${id}`, data),
   deleteMaterial: (id: number) => apiClient.delete(`/api/admin/materials/${id}`),
@@ -175,6 +226,82 @@ export const adminApi = {
   createTag: (data: Partial<Tag>) => apiClient.post('/api/admin/tags', data),
   updateTag: (id: number, data: Partial<Tag>) => apiClient.put(`/api/admin/tags/${id}`, data),
   deleteTag: (id: number) => apiClient.delete(`/api/admin/tags/${id}`),
+
+  // 文件上传
+  uploadFile: (file: File, gameSlug: string, categorySlug?: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('gameSlug', gameSlug);
+    if (categorySlug) {
+      formData.append('categorySlug', categorySlug);
+    }
+    return apiClient.post<ApiResponse<{
+      url: string;
+      filename: string;
+      originalName: string;
+      size: number;
+      mimeType: string;
+      path: string;
+    }>>('/api/upload/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  uploadFiles: (files: File[], gameSlug: string, categorySlug?: string) => {
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+    formData.append('gameSlug', gameSlug);
+    if (categorySlug) {
+      formData.append('categorySlug', categorySlug);
+    }
+    return apiClient.post<ApiResponse<{
+      uploaded: Array<{
+        url: string;
+        filename: string;
+        originalName: string;
+        size: number;
+        mimeType: string;
+        path: string;
+      }>;
+      failed: Array<{ originalName: string; error: string }>;
+      total: number;
+      successCount: number;
+      failedCount: number;
+    }>>('/api/upload/upload/batch', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
+
+  deleteUploadedFile: (path: string, filename: string) =>
+    apiClient.delete('/api/upload/delete', { data: { path, filename } }),
+
+  listFiles: (path?: string) =>
+    apiClient.get<ApiResponse<Array<{
+      name: string;
+      type: string;
+      size: number;
+      lastModified: string;
+      path: string;
+    }>>>('/api/upload/list', { params: { path } }),
+
+  getStorageInfo: () =>
+    apiClient.get<ApiResponse<{
+      used: number;
+      available: number;
+      usedFormatted: string;
+      availableFormatted: string;
+    } | null>>('/api/upload/storage'),
+
+  getWebDAVStatus: () =>
+    apiClient.get<ApiResponse<{
+      connected: boolean;
+      webdavUrl?: string;
+      error?: string;
+    }>>('/api/upload/status'),
 };
 
 export default apiClient;
